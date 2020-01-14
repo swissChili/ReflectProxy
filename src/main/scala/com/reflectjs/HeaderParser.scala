@@ -2,7 +2,7 @@ package com.reflectjs
 
 import scala.collection.mutable
 
-class HeaderParseError(message: String) extends Exception
+class HeaderParseError(message: String) extends Exception(message)
 
 object Transaction extends Enumeration {
   type Type = Value
@@ -32,7 +32,7 @@ class HeaderParser(transactionType: Transaction.Type) {
   private var data = ""
   private val headerPattern = """([a-zA-Z\-]+)\s*:\s*([^\r]+)\r\n""".r
   private val requestPattern = """^([A-Z]+) ([^\s]+) HTTP/(\d\.\d)\r\n""".r
-  private val responsePattern = """HTTP/(\d\.\d) (\d+) ([A-Z]+)\r\n""".r
+  private val responsePattern = """HTTP/(\d\.\d) (\d+) (\w+)\r\n""".r
   private val bodyPattern = """\r\n\r\n""".r
 
   val headers = new mutable.HashMap[String, String]()
@@ -50,13 +50,20 @@ class HeaderParser(transactionType: Transaction.Type) {
     body = ""
 
     data = rawData.slice(0, length).map(_.toChar).mkString
-    //println(data)
+    val split = data.split("\r\n\r\n")
+    var dataHeaders = data
+
+    if (split.length >= 2) {
+      dataHeaders = split(0)
+      body = split.slice(1, split.length).mkString("\r\n\r\n")
+    }
+
     for (patternMatch <- headerPattern.findAllMatchIn(data)) {
       headers.addOne(patternMatch.group(1), patternMatch.group(2))
     }
     transactionType match {
       case Transaction.Request =>
-        requestPattern.findFirstMatchIn(data) match {
+        requestPattern.findFirstMatchIn(dataHeaders) match {
           case Some(m) =>
             requestMethod = m.group(1)
             requestPath = m.group(2)
@@ -65,21 +72,15 @@ class HeaderParser(transactionType: Transaction.Type) {
             throw new HeaderParseError("Failed to parse http request first line")
         }
       case Transaction.Response =>
-        responsePattern.findFirstMatchIn(data) match {
+        responsePattern.findFirstMatchIn(dataHeaders) match {
           case Some(m) =>
             responseCode = m.group(2).toInt
             httpVersion = m.group(1).toDouble
             responseOk = m.group(3)
           case None =>
+            println(data.slice(0, 100))
             throw new HeaderParseError("Failed to parse http response first line")
         }
-    }
-    bodyPattern.findFirstMatchIn(data) match {
-      case Some(m) =>
-        body = data.slice(m.start, try {headers("Content-Length").toInt} catch {
-          case _: NoSuchElementException => data.length
-          case _: NumberFormatException => data.length
-        })
     }
   }
 

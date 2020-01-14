@@ -48,11 +48,19 @@ class ServerThread(clientOut: OutputStream, serverIn: InputStream) extends Threa
     val req = new Array[Byte](4096)
     var bytesRead = 0
     bytesRead = serverIn.read(req)
-    //val parser = new HeaderParser(Transaction.Request)
+    val parser = new HeaderParser(Transaction.Response)
     while (bytesRead != -1) {
       try {
-        clientOut.write(req, 0, bytesRead)
+        parser.parse(req, bytesRead)
+        println(parser.responseOk)
+        parser.headers.foreach(println(_))
+        parser.headers.remove("X-Frame-Options")
+        val (bytes, len) = parser.toByteArray
+        clientOut.write(bytes, 0, len)
         bytesRead = serverIn.read(req)
+      } catch {
+        case _: HeaderParseError =>
+          clientOut.write(req, 0, bytesRead)
       }
     }
   }
