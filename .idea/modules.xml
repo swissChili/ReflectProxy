@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/ReflectProxy.iml" filepath="$PROJECT_DIR$/.idea/modules/ReflectProxy.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/ReflectProxy-build.iml" filepath="$PROJECT_DIR$/.idea/modules/ReflectProxy-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.reflectjs.Proxy.iml" filepath="$PROJECT_DIR$/.idea/modules/com.reflectjs.Proxy.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.reflectjs.Proxy-build.iml" filepath="$PROJECT_DIR$/.idea/modules/com.reflectjs.Proxy-build.iml" />
     </modules>
   </component>
 </project>

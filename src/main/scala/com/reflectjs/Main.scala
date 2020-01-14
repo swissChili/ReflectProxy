@@ -1,7 +1,9 @@
 package com.reflectjs
 
 import java.net._
+import javax.net.ssl._
 import java.io.{InputStream, OutputStream}
+//import requests._
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -21,13 +23,18 @@ class ThreadProxy(client: Socket) extends Thread {
     val clientOut = client.getOutputStream
 
     val parser = new HeaderParser(Transaction.Request)
+    val resParser = new HeaderParser(Transaction.Response)
 
     var bytesRead = clientIn.read(reply)
     while (bytesRead != -1) {
       parser.parse(reply, bytesRead)
       // Slice the / off /www.website.com
       val serverPath = Path(parser.requestPath.slice(1, parser.requestPath.length))
-      val server = new Socket(serverPath.host, serverPath.port)
+      println(s"Port is ${serverPath.port}")
+      val server = serverPath.protocol match {
+        case "https://" => SSLSocketFactory.getDefault.createSocket(serverPath.host, serverPath.port)
+        case "http://" => new Socket(serverPath.host, serverPath.port)
+      }
       val serverIn = server.getInputStream
       val serverOut = server.getOutputStream
 
@@ -36,8 +43,9 @@ class ThreadProxy(client: Socket) extends Thread {
       parser.headers("Host") = serverPath.host
       parser.requestPath = s"${serverPath.absolutePath}${serverPath.query}"
 
-      val (sendBytes, len) = parser.toByteArray
-      serverOut.write(sendBytes, 0, len)
+      val (arr, len) = parser.toByteArray
+
+      serverOut.write(arr, 0, len)
       bytesRead = clientIn.read(reply)
     }
   }
@@ -46,22 +54,31 @@ class ThreadProxy(client: Socket) extends Thread {
 class ServerThread(clientOut: OutputStream, serverIn: InputStream) extends Thread {
   override def run(): Unit = {
     val req = new Array[Byte](4096)
-    var bytesRead = 0
-    bytesRead = serverIn.read(req)
     val parser = new HeaderParser(Transaction.Response)
+
+    var bytesRead = serverIn.read(req)
     while (bytesRead != -1) {
       try {
         parser.parse(req, bytesRead)
-        println(parser.responseOk)
+        println(s"Res = ${parser.responseOk}")
         parser.headers.foreach(println(_))
         parser.headers.remove("X-Frame-Options")
+        if (parser.headers.contains("Location")) {
+          parser.headers("Location") = "localhost:1234/" + parser.headers("Location")
+          println(parser.headers("Location"))
+        }
         val (bytes, len) = parser.toByteArray
         clientOut.write(bytes, 0, len)
-        bytesRead = serverIn.read(req)
       } catch {
         case _: HeaderParseError =>
-          clientOut.write(req, 0, bytesRead)
+          try {
+            clientOut.write(req, 0, bytesRead)
+          } catch {
+            case _: SocketException =>
+              println("Looks like we're done.")
+          }
       }
+      bytesRead = serverIn.read(req)
     }
   }
 }

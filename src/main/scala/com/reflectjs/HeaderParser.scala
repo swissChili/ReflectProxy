@@ -1,7 +1,6 @@
 package com.reflectjs
 
 import scala.collection.mutable
-
 class HeaderParseError(message: String) extends Exception(message)
 
 object Transaction extends Enumeration {
@@ -10,7 +9,7 @@ object Transaction extends Enumeration {
 }
 
 case class Path(fullPath: String) {
-  private val pathPattern = """^(https?://)?([a-zA-Z\-\.\d]+)(:(\d+))?((/[^\s^\?]*)(\?[^\s]*)?)?$""".r
+  private val pathPattern = """^(https?://)([a-zA-Z\-\.\d]+)(:(\d+))?((/[^\s^\?]*)(\?[^\s]*)?)?$""".r
   var protocol = "http://"
   var host = ""
   var absolutePath = "/"
@@ -20,7 +19,10 @@ case class Path(fullPath: String) {
     case Some(m) =>
       protocol = Option(m.group(1)).getOrElse("http://")
       host = m.group(2)
-      port = Option(m.group(4)).getOrElse("80").toInt
+      port = Option(m.group(4)).getOrElse(protocol match {
+        case "http://" => "80"
+        case "https://" => "443"
+      }).toInt
       absolutePath = Option(m.group(6)).getOrElse("/")
       query = Option(m.group(7)).getOrElse("")
     case None =>
@@ -32,8 +34,7 @@ class HeaderParser(transactionType: Transaction.Type) {
   private var data = ""
   private val headerPattern = """([a-zA-Z\-]+)\s*:\s*([^\r]+)\r\n""".r
   private val requestPattern = """^([A-Z]+) ([^\s]+) HTTP/(\d\.\d)\r\n""".r
-  private val responsePattern = """HTTP/(\d\.\d) (\d+) (\w+)\r\n""".r
-  private val bodyPattern = """\r\n\r\n""".r
+  private val responsePattern = """HTTP/(\d\.\d) (\d+) ([^\r]+)\r\n""".r
 
   val headers = new mutable.HashMap[String, String]()
   var requestMethod = ""
@@ -49,7 +50,7 @@ class HeaderParser(transactionType: Transaction.Type) {
     httpVersion = 1.0
     body = ""
 
-    data = rawData.slice(0, length).map(_.toChar).mkString
+    data = new String(rawData.slice(0, length), "UTF-8")
     val split = data.split("\r\n\r\n")
     var dataHeaders = data
 
@@ -69,6 +70,7 @@ class HeaderParser(transactionType: Transaction.Type) {
             requestPath = m.group(2)
             httpVersion = m.group(3).toDouble
           case None =>
+            println(data.slice(0, 100))
             throw new HeaderParseError("Failed to parse http request first line")
         }
       case Transaction.Response =>
@@ -85,7 +87,10 @@ class HeaderParser(transactionType: Transaction.Type) {
   }
 
   override def toString: String = {
-    s"${requestMethod} ${requestPath} HTTP/${httpVersion.toString}\r\n" +
+    (transactionType match {
+      case Transaction.Request => s"${requestMethod} ${requestPath} HTTP/${httpVersion.toString}\r\n"
+      case Transaction.Response => s"HTTP/${httpVersion} ${responseCode} ${responseOk}\r\n"
+    }) +
     headers.map {
       case (k, v) => s"${k}: ${v}"
     }.mkString("\r\n") + "\r\n\r\n" + body

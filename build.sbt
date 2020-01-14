@@ -1,4 +1,4 @@
-name := "ReflectProxy"
+name := "com.reflectjs.Proxy"
 
 version := "0.1"
 
