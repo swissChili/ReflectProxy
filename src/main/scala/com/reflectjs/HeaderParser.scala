@@ -9,7 +9,7 @@ object Transaction extends Enumeration {
 }
 
 case class Path(fullPath: String) {
-  private val pathPattern = """^(https?://)?([a-zA-Z\-\.\d]+)(:(\d+))?((/[^\s^?]*)(\?[^\s]*)?)?$""".r
+  private val pathPattern = """^(https?://)?([a-zA-Z\-\.\d]+)(:(\d+))?((/[^\s^\?]*)(\?[^\s]*)?)?$""".r
   var protocol = "http://"
   var host = ""
   var absolutePath = "/"

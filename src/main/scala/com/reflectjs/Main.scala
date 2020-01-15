@@ -31,6 +31,13 @@ class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
     var inBody = false
     var line = clientIn.readLine()
     while (line != null) {
+      try {
+        RequestLine(line)
+        knowPath = false
+      } catch {
+        case _: HeaderParseError =>
+      }
+
       if (!knowPath) {
         val request = RequestLine(line)
         val path = Path(request.path.slice(1, request.path.length))
@@ -71,6 +78,7 @@ class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
       line = clientIn.readLine()
     }
     println("client done")
+    client.close()
   }
 }
 
