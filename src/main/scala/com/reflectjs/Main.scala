@@ -1,108 +1,86 @@
 package com.reflectjs
 
 import java.net._
-import javax.net.ssl._
-import java.io.{InputStream, OutputStream}
-import scala.util.control.Breaks.break
-//import requests._
+import java.io._
+
+import javax.net.ssl.SSLSocketFactory
+
+import scala.collection.mutable.ArrayBuffer
+
 
 object Main {
   def main(args: Array[String]): Unit = {
     val localPort = 1234
     val server = new ServerSocket(localPort)
     while (true) {
-      new ThreadProxy(server.accept()).start()
+      new ProxyThread(server.accept()).start()
     }
   }
 }
 
-class ThreadProxy(client: Socket) extends Thread {
+class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
   override def run(): Unit = {
-    val request = new Array[Byte](4096)
-
-    val clientIn = client.getInputStream
     val clientOut = client.getOutputStream
+    val clientIn = new BufferedReader(
+      new InputStreamReader(client.getInputStream)
+    )
+    var server: Socket = null // SSLSocketFactory.getDefault.createSocket("www.google.com", 443)
+    var serverOut: OutputStream = null // server.getOutputStream
+    var serverIn: InputStream = null // server.getInputStream
+    var host = ""
 
-    val parser = new HeaderParser(Transaction.Request)
+    var knowPath = false
+    var inBody = false
+    var line = clientIn.readLine()
+    while (line != null) {
+      if (!knowPath) {
+        val request = RequestLine(line)
+        val path = Path(request.path.slice(1, request.path.length))
+        println(s"The path is ${path.host} : ${path.port}")
+        host = path.host
+        server = SSLSocketFactory.getDefault.createSocket(path.host, 443)
+        serverOut = server.getOutputStream
+        serverIn = server.getInputStream
 
-    var bytesRead = clientIn.read(request)
-    while (bytesRead != -1) {
-      parser.parse(request, bytesRead)
-      // Slice the / off /www.website.com
-      val serverPath = Path(parser.requestPath.slice(1, parser.requestPath.length))
-      println(s"Port is ${serverPath.port}")
-      val server = serverPath.protocol match {
-        case "https://" => SSLSocketFactory.getDefault.createSocket(serverPath.host, serverPath.port)
-        case "http://" => new Socket(serverPath.host, serverPath.port)
+        request.path = path.absolutePath + path.query
+        line = request.toString
+
+        new TransmitterThread(clientOut, serverIn).start()
+        knowPath = true
       }
-      val serverIn = server.getInputStream
-      val serverOut = server.getOutputStream
 
-      new ServerThread(clientOut, serverIn, client).start()
+      if (line == "") inBody = true
 
-      parser.headers("Host") = serverPath.host
-      parser.requestPath = s"${serverPath.absolutePath}${serverPath.query}"
+      if (!inBody) {
+        try {
+          val header = Header(line)
+          if (header.key == "Host") header.value = host
+          line = header.toString
+        } catch {
+          case _: HeaderParseError => // bruh
+        }
+      }
 
-      val (arr, len) = parser.toByteArray
-
-      println("~~ Request ~~")
-      println(parser.toString)
-      println("~~ /Request ~~")
-      println(s"len = $len")
-
-      serverOut.write(arr, 0, len)
-      bytesRead = clientIn.read(request)
+      serverOut.write((line + "\r\n").toCharArray.map(_.toByte), 0, line.length + 2)
+      serverOut.flush()
+      println(s"Wrote $line")
+      line = clientIn.readLine()
     }
+    println("client done")
   }
 }
 
-class ServerThread(clientOut: OutputStream, serverIn: InputStream, client: Socket) extends Thread {
+class TransmitterThread(out: OutputStream, in: InputStream) extends Thread("Transmitter Thread") {
   override def run(): Unit = {
-    val req = new Array[Byte](4096)
-    val parser = new HeaderParser(Transaction.Response)
+    val bytes = new Array[Byte](4096)
 
-    println(s"Server Thread ${serverIn.available()}")
-
-    var bytesRead = serverIn.read(req)
+    var bytesRead = in.read(bytes)
     while (bytesRead != -1) {
-      println(s"Read $bytesRead bytes")
-      clientOut.flush()
-      try {
-        parser.parse(req, bytesRead)
-        println(s"Res = ${parser.responseOk}")
-        parser.headers.remove("X-Frame-Options")
-        if (parser.headers.contains("Location")) {
-          parser.headers("Location") = "localhost:1234/" + parser.headers("Location")
-          println(parser.headers("Location"))
-        }
-        val contentEncoding = parser.headers.getOrElse("Content-Encoding", "identity")
-        parser.headers("Content-Encoding") = contentEncoding
-        println(s"~~ Encoding = $contentEncoding ~~")
-        parser.headers.foreach{case (k, v) => println(s"$k: $v")}
-        val resStr = parser.toString
-        val (bytes, len) = parser.toByteArray
-        clientOut.write(bytes, 0, len)
-        println(s"~~ Wrote Modified $len")
-      } catch {
-        case _: HeaderParseError =>
-          try {
-            clientOut.write(req, 0, bytesRead)
-            println(s"~~ Wrote $bytesRead")
-          } catch {
-            case _: SocketException =>
-              println("Looks like we're done.")
-          }
-      }
-      println(s"~~ Finished reading $bytesRead")
-      println(serverIn.available().toString)
-      if (serverIn.available() == 0) {
-        bytesRead = -1
-      } else {
-        bytesRead = serverIn.read(req)
-      }
+      println(s"Writing $bytesRead")
+      out.write(bytes, 0, bytesRead)
+      out.flush()
+      bytesRead = in.read(bytes)
     }
-
-    println("Goodbye!")
-    client.close()
+    println("done?")
   }
 }
