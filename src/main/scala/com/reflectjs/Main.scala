@@ -38,9 +38,15 @@ class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
         val path = Path(request.path.slice(1, request.path.length))
         println(s"The path is ${path.host} : ${path.port}")
         host = path.host
-        server = SSLSocketFactory.getDefault.createSocket(path.host, 443)
-        serverOut = server.getOutputStream
-        serverIn = server.getInputStream
+        try {
+          server = SSLSocketFactory.getDefault.createSocket(path.host, 443)
+          serverOut = server.getOutputStream
+          serverIn = server.getInputStream
+        } catch {
+          case _: UnknownHostException =>
+            client.close()
+            return
+        }
 
         request.path = path.absolutePath + path.query
         line = request.toString
