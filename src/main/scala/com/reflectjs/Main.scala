@@ -2,16 +2,14 @@ package com.reflectjs
 
 import java.net._
 import java.io._
-
 import javax.net.ssl.SSLSocketFactory
-
-import scala.collection.mutable.ArrayBuffer
 
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val localPort = 1234
+    val localPort = sys.env.getOrElse("PORT", "1234").toInt
     val server = new ServerSocket(localPort)
+    println(s"Serving on :$localPort")
     while (true) {
       new ProxyThread(server.accept()).start()
     }
