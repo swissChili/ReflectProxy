@@ -32,7 +32,7 @@ case class Path(fullPath: String) {
 
 class HeaderParser(transactionType: Transaction.Type) {
   private var data = ""
-  private val headerPattern = """([a-zA-Z\-]+)\s*:\s*([^\r]+)\r\n""".r
+  private val headerPattern = """\n([a-zA-Z\-]+)\s*:\s*([^\r]+)\r\n""".r
   private val requestPattern = """^([A-Z]+) ([^\s]+) HTTP/(\d\.\d)\r\n""".r
   private val responsePattern = """HTTP/(\d\.\d) (\d+) ([^\r]+)\r\n""".r
 
@@ -87,17 +87,20 @@ class HeaderParser(transactionType: Transaction.Type) {
   }
 
   override def toString: String = {
+    //headers("Content-Length") = body.length.toString
+
     (transactionType match {
       case Transaction.Request => s"${requestMethod} ${requestPath} HTTP/${httpVersion.toString}\r\n"
       case Transaction.Response => s"HTTP/${httpVersion} ${responseCode} ${responseOk}\r\n"
     }) +
     headers.map {
       case (k, v) => s"${k}: ${v}"
-    }.mkString("\r\n") + "\r\n\r\n" + body
+    }.mkString("\r\n") + "\r\n\r\n" + body //(if (body != "") { "\r\n\r\n" + body } else "" )
   }
 
   def toByteArray: (Array[Byte], Int) = {
-    val arr = toString().map(_.toByte).toArray
-    (arr, arr.length)
+    val str = toString
+    val arr = str.map(_.toByte).toArray
+    (arr, str.length)
   }
 }
