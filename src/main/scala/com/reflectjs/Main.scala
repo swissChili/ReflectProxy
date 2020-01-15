@@ -3,6 +3,7 @@ package com.reflectjs
 import java.net._
 import javax.net.ssl._
 import java.io.{InputStream, OutputStream}
+import scala.util.control.Breaks.break
 //import requests._
 
 object Main {
@@ -37,7 +38,7 @@ class ThreadProxy(client: Socket) extends Thread {
       val serverIn = server.getInputStream
       val serverOut = server.getOutputStream
 
-      new ServerThread(clientOut, serverIn, server).start()
+      new ServerThread(clientOut, serverIn, client).start()
 
       parser.headers("Host") = serverPath.host
       parser.requestPath = s"${serverPath.absolutePath}${serverPath.query}"
@@ -55,7 +56,7 @@ class ThreadProxy(client: Socket) extends Thread {
   }
 }
 
-class ServerThread(clientOut: OutputStream, serverIn: InputStream, server: Socket) extends Thread {
+class ServerThread(clientOut: OutputStream, serverIn: InputStream, client: Socket) extends Thread {
   override def run(): Unit = {
     val req = new Array[Byte](4096)
     val parser = new HeaderParser(Transaction.Response)
@@ -65,6 +66,7 @@ class ServerThread(clientOut: OutputStream, serverIn: InputStream, server: Socke
     var bytesRead = serverIn.read(req)
     while (bytesRead != -1) {
       println(s"Read $bytesRead bytes")
+      clientOut.flush()
       try {
         parser.parse(req, bytesRead)
         println(s"Res = ${parser.responseOk}")
@@ -74,7 +76,7 @@ class ServerThread(clientOut: OutputStream, serverIn: InputStream, server: Socke
           println(parser.headers("Location"))
         }
         val contentEncoding = parser.headers.getOrElse("Content-Encoding", "identity")
-        // parser.headers("Content-Encoding") = "gzi"
+        parser.headers("Content-Encoding") = contentEncoding
         println(s"~~ Encoding = $contentEncoding ~~")
         parser.headers.foreach{case (k, v) => println(s"$k: $v")}
         val resStr = parser.toString
@@ -92,10 +94,15 @@ class ServerThread(clientOut: OutputStream, serverIn: InputStream, server: Socke
           }
       }
       println(s"~~ Finished reading $bytesRead")
-      bytesRead = serverIn.read(req)
+      println(serverIn.available().toString)
+      if (serverIn.available() == 0) {
+        bytesRead = -1
+      } else {
+        bytesRead = serverIn.read(req)
+      }
     }
 
     println("Goodbye!")
-    server.close()
+    client.close()
   }
 }
