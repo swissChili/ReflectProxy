@@ -12,6 +12,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala-library:2.13.1:jar" level="project" />
+    <orderEntry type="library" name="sbt: mysql:mysql-connector-java:6.0.6:jar" level="project" />
     <orderEntry type="library" name="sbt: com.athaydes.rawhttp:rawhttp-core:2.1:jar" level="project" />
   </component>
 </module>

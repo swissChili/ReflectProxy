@@ -1,6 +1,7 @@
 package com.reflectjs
 
 import scala.collection.mutable
+import java.util.logging.{Logger, Level}
 class HeaderParseError(message: String) extends Exception(message)
 
 object Transaction extends Enumeration {
@@ -32,7 +33,7 @@ case class Path(fullPath: String) {
   override def toString: String = s"$protocol$host:$port$absolutePath$query"
 }
 
-case class RequestLine(line: String) {
+case class RequestLine(line: String)(implicit logger: Logger) {
   private val reqPattern = """^([A-Z]+) ([^\s]+) HTTP/(\d\.\d)""".r
   var method = "GET"
   var path: String = _
@@ -43,7 +44,7 @@ case class RequestLine(line: String) {
       path = m.group(2)
       httpVersion = m.group(3).toDouble
     case None =>
-      println(line)
+      logger.log(Level.INFO, line)
       throw new HeaderParseError("Could not parse request line")
   }
 
