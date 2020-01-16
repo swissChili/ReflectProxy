@@ -3,7 +3,7 @@ package com.reflectjs
 import java.net._
 import java.io._
 import javax.net.ssl.SSLSocketFactory
-import rawhttp.core.RawHttp
+import rawhttp.core.{RawHttp, RawHttpHeaders}
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -97,7 +97,9 @@ class TransmitterThread(out: OutputStream, in: InputStream, client: Socket) exte
   override def run(): Unit = {
     try {
       val response = new RawHttp().parseResponse(in)
-      response.writeTo(out)
+      val h = RawHttpHeaders.newBuilder()
+      h.overwrite("X-ReflectJS-Proxied", "1")
+      response.withHeaders(h.build()).writeTo(out)
     } catch {
       case _: IllegalStateException => client.close()
     }
