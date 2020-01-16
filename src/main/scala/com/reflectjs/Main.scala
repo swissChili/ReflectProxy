@@ -3,6 +3,7 @@ package com.reflectjs
 import java.net._
 import java.io._
 import javax.net.ssl.SSLSocketFactory
+import rawhttp.core.RawHttp
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -66,7 +67,7 @@ class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
         request.path = path.absolutePath + path.query
         line = request.toString
 
-        new TransmitterThread(clientOut, serverIn).start()
+        new TransmitterThread(clientOut, serverIn, client).start()
         knowPath = true
       }
 
@@ -92,9 +93,15 @@ class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
   }
 }
 
-class TransmitterThread(out: OutputStream, in: InputStream) extends Thread("Transmitter Thread") {
+class TransmitterThread(out: OutputStream, in: InputStream, client: Socket) extends Thread("Transmitter Thread") {
   override def run(): Unit = {
-    val bytes = new Array[Byte](4096)
+    try {
+      val response = new RawHttp().parseResponse(in)
+      response.writeTo(out)
+    } catch {
+      case _: IllegalStateException => client.close()
+    }
+    /*val bytes = new Array[Byte](4096)
 
     var bytesRead = in.read(bytes)
     while (bytesRead != -1) {
@@ -103,6 +110,6 @@ class TransmitterThread(out: OutputStream, in: InputStream) extends Thread("Tran
       out.flush()
       bytesRead = in.read(bytes)
     }
-    println("done?")
+    println("done?")*/
   }
 }
