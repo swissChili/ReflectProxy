@@ -4,7 +4,6 @@ import java.net._
 import java.io._
 import javax.net.ssl.SSLSocketFactory
 
-
 object Main {
   def main(args: Array[String]): Unit = {
     val localPort = sys.env.getOrElse("PORT", "1234").toInt
@@ -15,6 +14,8 @@ object Main {
     }
   }
 }
+
+class RequestError(message: String) extends Exception(message)
 
 class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
   override def run(): Unit = {
@@ -38,11 +39,20 @@ class ProxyThread(client: Socket) extends Thread("Proxy Thread") {
         case _: HeaderParseError =>
       }
 
+      //println(s"SOCKET FROM ${client.getRemoteSocketAddress.toString}")
+
       if (!knowPath) {
         val request = RequestLine(line)
-        val path = Path(request.path.slice(1, request.path.length))
-        println(s"The path is ${path.host} : ${path.port}")
-        host = path.host
+        var path: Path = null
+        try {
+          path = Path(request.path.slice(1, request.path.length))
+          println(s"The path is ${path.host} : ${path.port}")
+          host = path.host
+        } catch {
+          case _: HeaderParseError =>
+            client.close()
+            throw new RequestError("Could not parse path")
+        }
         try {
           server = SSLSocketFactory.getDefault.createSocket(path.host, 443)
           serverOut = server.getOutputStream
