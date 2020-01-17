@@ -2,6 +2,7 @@ package com.reflectjs
 
 import java.sql._
 import java.util.logging.{Logger, Level}
+import java.util.Date
 
 class Analytics(user: String, passwd: String) {
   val url = "jdbc:mysql://localhost:3306/reflectjs?useSSL=false"
@@ -14,7 +15,7 @@ class Analytics(user: String, passwd: String) {
         |VALUES(?, ?, ?, ?, ?);
         |""".stripMargin)
 
-    ps.setDate(1, new Date(System.currentTimeMillis()))
+    ps.setTimestamp(1, new Timestamp(new Date().getTime));
     ps.setString(2, path.host)
     ps.setString(3, path.absolutePath)
     ps.setString(4, path.query)
