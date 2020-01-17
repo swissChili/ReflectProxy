@@ -118,6 +118,7 @@ class TransmitterThread(out: OutputStream,
       h.overwrite("X-ReflectJS-Proxied", "1")
       h.overwrite("X-Frame-Options", "none")
       h.overwrite("Access-Control-Allow-Origin", "*")
+      h.overwrite("Content-Security-Policy", "default-src: 'self' *.reflectjs.com")
       response.withHeaders(h.build()).writeTo(out)
       analytics.addRequest(client.getInetAddress.toString, path)
     } catch {
