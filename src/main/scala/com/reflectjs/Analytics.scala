@@ -4,12 +4,23 @@ import java.sql._
 import java.util.logging.{Logger, Level}
 import java.util.Date
 
-class Analytics(user: String, passwd: String) {
+abstract class Analytics {
+  def addRequest(clientIp: String, path: Path)(implicit logger: Logger)
+}
+
+class UselessAnalytics extends Analytics {
+  override def addRequest(clientIp: String, path: Path)(implicit logger: Logger): Unit = {
+    // do nothing
+    logger.log(Level.INFO, "Useless Analytics does not log!")
+  }
+}
+
+class MySQLAnalytics(user: String, passwd: String) extends Analytics {
   val url = "jdbc:mysql://localhost:3306/reflectjs?useSSL=false"
 
   val connection: Connection = DriverManager.getConnection(url, user, passwd)
 
-  def addRequest(clientIp: String, path: Path)(implicit logger: Logger): Unit = {
+  override def addRequest(clientIp: String, path: Path)(implicit logger: Logger): Unit = {
     val ps = connection.prepareStatement(
       """insert into requests (requested_at, host, path, query, client_ip)
         |VALUES(?, ?, ?, ?, ?);

@@ -9,10 +9,13 @@ import rawhttp.core.{RawHttp, RawHttpHeaders, RawHttpResponse}
 
 object Main {
   implicit val logger: Logger = Logger.getLogger("Logger")
-  implicit val analytics: Analytics = new Analytics(
-    sys.env.getOrElse("MYSQL_USER", "test"),
-    sys.env.getOrElse("MYSQL_PASS", "password")
-  )
+  implicit val analytics: Analytics = sys.env.get("PROXY_DISABLE_SQL") match {
+    case Some(x) => new UselessAnalytics
+    case None => new MySQLAnalytics(
+      sys.env.getOrElse("MYSQL_USER", "test"),
+      sys.env.getOrElse("MYSQL_PASS", "password")
+    )
+  }
 
   def main(args: Array[String]): Unit = {
     val localPort = sys.env.getOrElse("PORT", "1234").toInt
