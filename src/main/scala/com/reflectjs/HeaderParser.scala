@@ -27,7 +27,7 @@ case class Path(fullPath: String) {
       absolutePath = Option(m.group(6)).getOrElse("/")
       query = Option(m.group(7)).getOrElse("")
     case None =>
-      throw new HeaderParseError("Failed to parse http path")
+      throw new HeaderParseError(s"Failed to parse http path '$fullPath'")
   }
 
   override def toString: String = s"$protocol$host:$port$absolutePath$query"

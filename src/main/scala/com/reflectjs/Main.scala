@@ -2,13 +2,19 @@ package com.reflectjs
 
 import java.net._
 import java.io._
-import java.util.logging.{Logger, Level}
+import java.util.logging.{ConsoleHandler, Level, Logger}
 
 import javax.net.ssl.SSLSocketFactory
 import rawhttp.core.{RawHttp, RawHttpHeaders, RawHttpResponse}
 
 object Main {
   implicit val logger: Logger = Logger.getLogger("Logger")
+  logger.setUseParentHandlers(false)
+  val handler = new ConsoleHandler()
+  val formatter = new LogFormatter()
+  handler.setFormatter(formatter)
+  logger.addHandler(handler)
+
   implicit val analytics: Analytics = sys.env.get("PROXY_DISABLE_SQL") match {
     case Some(x) => new UselessAnalytics
     case None => new MySQLAnalytics(
@@ -103,7 +109,7 @@ class ProxyThread(client: Socket,
       logger.log(Level.INFO, s"Wrote $line")
       line = clientIn.readLine()
     }
-    logger.log(Level.INFO, "client done")
+    logger.log(Level.FINE, "client done")
     client.close()
   }
 }
@@ -121,9 +127,10 @@ class TransmitterThread(out: OutputStream,
       h.overwrite("X-ReflectJS-Proxied", "1")
       h.overwrite("X-Frame-Options", "none")
       h.overwrite("Access-Control-Allow-Origin", "*")
-      h.overwrite("Content-Security-Policy", "default-src: 'self' *.reflectjs.com")
+      h.overwrite("Content-Security-Policy", "default-src 'self' *.reflectjs.com")
       response.withHeaders(h.build()).writeTo(out)
       analytics.addRequest(client.getInetAddress.toString, path)
+      logger.log(Level.FINE, "Finished writing request")
     } catch {
       case _: IllegalStateException => client.close()
     }

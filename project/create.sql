@@ -10,7 +10,3 @@ create table if not exists requests (
   path varchar(255) comment 'The path requested',
   query varchar(255) comment 'Query Parameters'
 );
-
-
--- insert into requests (requested_at, host, path, query)
---   VALUES("2020-01-16 14:38:00" , "www.google.com", "/", "");

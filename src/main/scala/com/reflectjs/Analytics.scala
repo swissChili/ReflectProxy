@@ -11,7 +11,7 @@ abstract class Analytics {
 class UselessAnalytics extends Analytics {
   override def addRequest(clientIp: String, path: Path)(implicit logger: Logger): Unit = {
     // do nothing
-    logger.log(Level.INFO, "Useless Analytics does not log!")
+    logger.log(Level.INFO, s"$clientIp fetched $path")
   }
 }
 
@@ -31,6 +31,8 @@ class MySQLAnalytics(user: String, passwd: String) extends Analytics {
     ps.setString(3, path.absolutePath)
     ps.setString(4, path.query)
     ps.setString(5, clientIp)
+
+    logger.log(Level.INFO, s"$clientIp fetched $path")
 
     try {
       ps.executeUpdate()
